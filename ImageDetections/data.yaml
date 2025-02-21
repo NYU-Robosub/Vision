@@ -1,0 +1,15 @@
+train: ../datasets/train/images
+val: ../datasets/valid/images
+test: ../datasets/test/images
+
+nc: 16
+names: ['abydos', 'abydos-bin', 'abydos1', 'abydos2', 'abydos3', 'abydos4', 'abydos5', 'abydos6', 'earth', 'earth-bin', 'earth1', 'earth2', 'earth3', 'earth4', 'earth5', 'earth6']
+
+roboflow:
+  workspace: robosub-nnkzo
+  project: images-8hdpa
+  version: 5
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/robosub-nnkzo/images-8hdpa/dataset/5
+
+#https://universe.roboflow.com/ds/3ExT7stF7l?key=2x0SlWsSjV

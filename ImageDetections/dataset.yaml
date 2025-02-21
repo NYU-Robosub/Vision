@@ -1,0 +1,5 @@
+names:
+- path
+nc: 1
+train: train
+val: val
