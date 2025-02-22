@@ -9,6 +9,12 @@ import math
 import numpy as np
 import sys
 import math
+import cv2
+import torch
+from ultralytics import YOLO
+
+# Load YOLOv8 model
+model = YOLO("yolov8n.pt")
 
 def main():
     # Create a Camera object
@@ -28,7 +34,7 @@ def main():
     # Create and set RuntimeParameters after opening the camera
     runtime_parameters = sl.RuntimeParameters()
     
-    i = 0
+    # i = 0
     image = sl.Mat()
     depth = sl.Mat()
     point_cloud = sl.Mat()
@@ -36,7 +42,7 @@ def main():
     mirror_ref = sl.Transform()
     mirror_ref.set_translation(sl.Translation(2.75,4.0,0))
 
-    while i < 50:
+    while True:
         # A new image is available if grab() returns SUCCESS
         if zed.grab(runtime_parameters) == sl.ERROR_CODE.SUCCESS:
             # Retrieve left image
@@ -46,24 +52,43 @@ def main():
             # Retrieve colored point cloud. Point cloud is aligned on the left image.
             zed.retrieve_measure(point_cloud, sl.MEASURE.XYZRGBA)
 
-            # Get and print distance value in mm at the center of the image
-            # We measure the distance camera - object using Euclidean distance
-            x = round(image.get_width() / 2)
-            y = round(image.get_height() / 2)
-            err, point_cloud_value = point_cloud.get_value(x, y)
+            # Convert ZED image to OpenCV format
+            frame = image.get_data()
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGRA2BGR)
 
-            if math.isfinite(point_cloud_value[2]):
-                distance = math.sqrt(point_cloud_value[0] * point_cloud_value[0] +
-                                    point_cloud_value[1] * point_cloud_value[1] +
-                                    point_cloud_value[2] * point_cloud_value[2])
-                print(f"Distance to Camera at {{{x};{y}}}: {distance}")
-            else : 
-                print(f"The distance can not be computed at {{{x};{y}}}")
-            i += 1    
-           
+            # Run YOLOv8 object detection
+            results = model(frame)[0]  # Get first frame result
+
+            for obj in results.boxes.data:
+                x1, y1, x2, y2, conf, cls = obj.cpu().numpy()
+                x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
+                class_name = model.names[int(cls)]  # Get object class
+
+                # Calculate center of bounding box
+                x_center = (x1 + x2) // 2
+                y_center = (y1 + y2) // 2
+
+                # Get depth information at object center
+                err, point_cloud_value = point_cloud.get_value(x_center, y_center)
+                if err == sl.ERROR_CODE.SUCCESS and math.isfinite(point_cloud_value[2]):
+                    distance = math.sqrt(sum(v ** 2 for v in point_cloud_value[:3]))
+                    print(f"{class_name} detected at ({x_center},{y_center}), Distance: {distance:.2f} mm")
+
+                    # Draw bounding box and distance
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                    cv2.putText(frame, f"{class_name}: {distance:.2f} mm",
+                                (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+
+            # Display image
+            cv2.imshow("YOLOv8 Object Detection with ZED", frame)
+
+            # Exit when 'q' is pressed
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
 
     # Close the camera
     zed.close()
+    cv2.destroyAllWindows()
 
 if __name__ == "__main__":
     main()
