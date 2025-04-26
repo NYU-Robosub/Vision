@@ -9,6 +9,11 @@ import math
 import numpy as np
 import sys
 
+# publisher
+import rospy
+from std_msgs.msg import Float32MultiArray
+import numpy as np
+
 # import cv2
 # import torch
 # from ultralytics import YOLO
@@ -17,6 +22,11 @@ import sys
 # model = YOLO("yolov8n.pt")
 
 def main():
+    # depth_map publisher
+    rospy.init_node('depth_map', anonymous=True)
+    pub = rospy.Publisher('/depth_matrix', Float32MultiArray, queue_size=10)
+
+
     # Create a Camera object
     zed = sl.Camera()
 
@@ -36,9 +46,23 @@ def main():
     
     i = 0
     image = sl.Mat()
-    depth = sl.Mat()
-    point_cloud = sl.Mat()
+    depth = sl.Mat() # this should be a 2d matrix consist of depth
+    point_cloud = sl.Mat() #this adds the rgb value
 
+
+    while not rospy.is_shutdown():
+        if zed.grab(runtime_parameters) == sl.ERROR_CODE.SUCCESS:
+            # Constantly retrieve depth measurement, fill the depth matrix basically
+            zed.retrieve_measure(depth, sl.MEASURE.DEPTH)
+            depth_map = depth.get_data()
+            depth_msg = Float32MultiArray()
+            depth_msg.data = depth_map.flatten().tolist()
+
+    pub.publish(depth_msg)
+
+
+
+'''
     mirror_ref = sl.Transform()
     mirror_ref.set_translation(sl.Translation(2.75,4.0,0))
 
@@ -120,6 +144,8 @@ def main():
     # Close the camera
     zed.close()
     # cv2.destroyAllWindows()
+'''
+
 
 if __name__ == "__main__":
     main()
