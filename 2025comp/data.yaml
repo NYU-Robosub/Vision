@@ -1,0 +1,13 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 3
+names: ['prequal gate', 'prequal gate leg l', 'prequal gate leg r']
+
+roboflow:
+  workspace: nyu-robosub
+  project: pre-qualification-gate-gvfc8
+  version: 5
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/nyu-robosub/pre-qualification-gate-gvfc8/dataset/5
