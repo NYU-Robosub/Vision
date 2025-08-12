@@ -5,7 +5,18 @@ from std_msgs.msg import Float32MultiArray
 # from geometry_msgs.msg import PointStamped
 
 def main():
-    rospy.init_node('zed_bottom_depth_node')
+    # Check ROS environment before initializing
+    try:
+        import os
+        ros_master_uri = os.environ.get('ROS_MASTER_URI', 'Not set')
+        rospy.loginfo(f"ROS_MASTER_URI: {ros_master_uri}")
+        
+        rospy.init_node('zed_bottom_depth_node')
+        rospy.loginfo("ROS node initialized successfully")
+        
+    except Exception as e:
+        print(f"Failed to initialize ROS node: {e}")
+        return
     
     # ROS publishers
     ground_depth_pub = rospy.Publisher('/zed/bottom/ground_depth', Float32MultiArray, queue_size=1)
@@ -81,7 +92,8 @@ def main():
                 # Publish ground depth data [avg_depth, min_depth, max_depth, num_valid_pixels]
                 try:
                     ground_msg = Float32MultiArray()
-                    ground_msg.data = float(avg_ground_depth)
+                    ground_msg.data = [float(avg_ground_depth), float(min_ground_depth), 
+                                     float(max_ground_depth), float(len(depth_values))]
                     ground_depth_pub.publish(ground_msg)
                 except Exception as e:
                     rospy.logwarn(f"Failed to publish ground depth: {e}")
