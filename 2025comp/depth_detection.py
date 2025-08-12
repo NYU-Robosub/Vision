@@ -109,7 +109,7 @@ def main():
                         
                         # Log successful depth readings
                         if depth_val > 0 and not np.isnan(depth_val) and not np.isinf(depth_val):
-                            rospy.loginfo(f"Detection: {model.names[cls]} at ({cx}, {cy}) depth: {depth_val:.2f}m")
+                            rospy.loginfo(f"Detection: {model.names[cls]} at ({cx}, {cy}) depth: {depth_val:.2f}m, confidence: {conf:.3f}")
                         
                     except Exception as e:
                         import traceback
