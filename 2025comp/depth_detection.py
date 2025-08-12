@@ -78,15 +78,20 @@ def main():
                     try:
                         depth_result = depth_zed.get_value(cx, cy)
                         
-                        # ZED get_value typically returns a single float value for depth
-                        if isinstance(depth_result, (tuple, list)):
-                            # If it's a tuple/list, take the first element (depth)
-                            depth_val = float(depth_result[0])
+                        # Check if depth_result is an error code
+                        if hasattr(depth_result, 'name') or str(depth_result).startswith('ERROR_CODE'):
+                            rospy.logwarn(f"Depth measurement failed at ({cx}, {cy}): {depth_result}")
+                            depth_val = -1.0
                         else:
-                            # If it's a single value, use it directly
-                            depth_val = float(depth_result)
-                        
-                        rospy.loginfo(f"Depth at ({cx}, {cy}): {depth_val}")
+                            # ZED get_value typically returns a single float value for depth
+                            if isinstance(depth_result, (tuple, list)):
+                                # If it's a tuple/list, take the first element (depth)
+                                depth_val = float(depth_result[0])
+                            else:
+                                # If it's a single value, use it directly
+                                depth_val = float(depth_result)
+                            
+                            rospy.loginfo(f"Depth at ({cx}, {cy}): {depth_val}")
                         
                     except Exception as e:
                         rospy.logwarn(f"Error getting depth value: {e}")
@@ -102,8 +107,13 @@ def main():
                     # Create label with class name, confidence, and depth
                     class_name = model.names[cls] if cls < len(model.names) else f"Class_{cls}"
                     label = f"{class_name} {conf:.2f} {depth_str}"
-                    # Draw bounding box
-                    cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+
+                    # Ensure frame is a contiguous array for OpenCV operations
+                    frame_for_drawing = np.ascontiguousarray(frame, dtype=np.uint8)
+
+                    # Draw bounding box (convert to BGR for OpenCV drawing)
+                    frame_bgr = cv2.cvtColor(frame_for_drawing, cv2.COLOR_RGB2BGR)
+                    cv2.rectangle(frame_bgr, (x1, y1), (x2, y2), (0, 255, 0), 2)
                     # Draw label with background for better visibility
                     label_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)[0]
                     cv2.rectangle(frame, (x1, y1 - label_size[1] - 10),
