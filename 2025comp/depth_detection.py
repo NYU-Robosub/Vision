@@ -100,7 +100,15 @@ def main():
                             rospy.loginfo(f"Detection: {model.names[cls]} at ({cx}, {cy}) depth: {depth_val:.2f}m")
                         
                     except Exception as e:
-                        rospy.logwarn(f"Error getting depth value: {e}")
+                        import traceback
+                        error_type = type(e).__name__
+                        error_msg = str(e)
+                        error_traceback = traceback.format_exc()
+                        
+                        rospy.logwarn(f"Error getting depth value at ({cx}, {cy}):")
+                        rospy.logwarn(f"  Error Type: {error_type}")
+                        rospy.logwarn(f"  Error Message: {error_msg}")
+                        rospy.logwarn(f"  Full Traceback: {error_traceback}")
                         depth_val = -1.0
                     
                     # Validate depth value
