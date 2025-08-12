@@ -3,18 +3,14 @@ import pyzed.sl as sl
 import cv2
 import numpy as np
 from ultralytics import YOLO
-from sensor_msgs.msg import Image
 from std_msgs.msg import Float32MultiArray
-from cv_bridge import CvBridge
 
 def main():
     rospy.init_node('zed_yolo_node')
     
     # ROS publishers
-    image_pub = rospy.Publisher('/zed/yolo/raw_image', Image, queue_size=1)
     depth_pub = rospy.Publisher('/zed/yolo/detected_depths', Float32MultiArray, queue_size=1)
     coords_pub = rospy.Publisher('/zed/yolo/coordinates', Float32MultiArray, queue_size=1)
-    bridge = CvBridge()
     
     # Load your YOLO model weights
     try:
@@ -52,7 +48,7 @@ def main():
             if len(frame.shape) == 3:
                 if frame.shape[2] == 4:
                     # Convert RGBA to RGB
-                    frame = frame[:, :, :3]  # Simply drop alpha channel
+                    frame = frame[:, :, :3]  # Drop alpha channel
                 elif frame.shape[2] == 3:
                     # Already 3 channels, assume it's BGR and convert to RGB
                     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -62,8 +58,8 @@ def main():
             
             # Run YOLO detection (frame is now RGB format)
             results = model(frame, conf=0.5)
-            detected_depths = []
-            coordinates = []  # Store [x1, y1, x2, y2, cx, cy, class_id, confidence] for each detection
+            detections = []  # Store [x1, y1, x2, y2, cx, cy, depth, class_id, confidence] for each detection
+            coordinates = []
 
             for result in results:
                 for box in result.boxes:
@@ -123,41 +119,33 @@ def main():
                     
                     # Validate depth value
                     if depth_val > 0 and not np.isnan(depth_val) and not np.isinf(depth_val):
-                        detected_depths.append(float(depth_val))
+                        detections.append(float(depth_val))
                     else:
-                        detected_depths.append(-1.0)  # Invalid depth marker
+                        detections.append(-1.0)  # Invalid depth marker
                     
                     # Store coordinates and detection info
                     # Format: [x1, y1, x2, y2, cx, cy, class_id, confidence]
                     coordinates.extend([float(x1), float(y1), float(x2), float(y2), 
                                       float(cx), float(cy), float(cls), float(conf)])
 
-            # Publish raw image (no annotations)
-            try:
-                ros_image = bridge.cv2_to_imgmsg(frame, encoding="rgb8")
-                image_pub.publish(ros_image)
-            except Exception as e:
-                rospy.logwarn(f"Failed to publish image: {e}")
-            
-            # Publish detected depths as Float32MultiArray
+            # Publish depths
             try:
                 depth_msg = Float32MultiArray()
-                depth_msg.data = detected_depths
+                depth_msg.data = detections
                 depth_pub.publish(depth_msg)
             except Exception as e:
                 rospy.logwarn(f"Failed to publish depths: {e}")
             
-            # Publish coordinates as Float32MultiArray
+            # Publish coordinates
             try:
                 coords_msg = Float32MultiArray()
                 coords_msg.data = coordinates
-                depth_pub.publish(coords_msg)
+                coords_pub.publish(coords_msg)
             except Exception as e:
                 rospy.logwarn(f"Failed to publish coordinates: {e}")
         
         rate.sleep()
     
-    # Clean up
     zed.close()
 
 if __name__ == "__main__":
