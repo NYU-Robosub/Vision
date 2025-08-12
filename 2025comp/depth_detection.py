@@ -41,10 +41,7 @@ def main():
         zed.close()
         return
     pose_zed = sl.Pose()
-    pose_zed.set_translation(sl.Translation(0,0,0))
-    pose_zed.set_orientation(sl.Orientation(0,0,0,1))
-    zed.set_camera_pose(pose_zed)
-
+    
     rate = rospy.Rate(30)  # 30 Hz
     
     while not rospy.is_shutdown():
