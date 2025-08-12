@@ -56,9 +56,8 @@ def main():
             height, width = frame.shape[:2]
             
             # Run YOLO detection (frame is now RGB format)
-            # results = model(frame, conf=0.5)
-            results = model(frame, conf=0.8) 
-            detections = []  # Store [x1, y1, x2, y2, cx, cy, depth, class_id, confidence] for each detection
+            results = model(frame, conf=0.5)
+            detections = []  # Store [x1_norm, x2_norm, y1_norm, y2_norm, depth, class_id, confidence] for each detection
 
             for result in results:
                 for box in result.boxes:
@@ -67,7 +66,13 @@ def main():
                     cls = int(box.cls[0])
                     conf = float(box.conf[0])
                     
-                    # Calculate center point of bounding box
+                    # Normalize coordinates to 0-1 range
+                    x1_norm = x1 / float(width - 1)
+                    x2_norm = x2 / float(width - 1)
+                    y1_norm = y1 / float(height - 1)
+                    y2_norm = y2 / float(height - 1)
+                    
+                    # Calculate center point of bounding box (in pixel coordinates for depth lookup)
                     cx = int((x1 + x2) / 2)
                     cy = int((y1 + y2) / 2)
                     
@@ -120,27 +125,6 @@ def main():
                     if depth_val <= 0 or np.isnan(depth_val) or np.isinf(depth_val):
                         depth_val = -1.0  # Invalid depth marker
                     
-                    # Store detection info: [x1, y1, x2, y2, cx, cy, depth, class_id, confidence]
-                    detections.extend([float(x1), float(y1), float(x2), float(y2), 
-                                     float(cx), float(cy), float(depth_val), float(cls), float(conf)])
-
-            # Publish detections as Float32MultiArray
-            try:
-                detection_msg = Float32MultiArray()
-                detection_msg.data = detections
-                coords_pub.publish(detection_msg)
-            except Exception as e:
-                rospy.logwarn(f"Failed to publish detections: {e}")
-        
-        rate.sleep()
-    
-    # Clean up
-    zed.close()
-
-if __name__ == "__main__":
-    try:
-        main()
-    except rospy.ROSInterruptException:
-        rospy.loginfo("ZED YOLO node interrupted")
-    except Exception as e:
-        rospy.logerr(f"Unexpected error in ZED YOLO node: {e}")
+                    # Store detection info: [x1_norm, x2_norm, y1_norm, y2_norm, depth, class_id, confidence]
+                    detections.extend([float(x1_norm), float(x2_norm), float(y1_norm), float(y2_norm), 
+                                      float(depth_val), float(cls), float(conf)])
