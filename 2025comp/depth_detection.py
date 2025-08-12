@@ -4,12 +4,15 @@ import cv2
 import numpy as np
 from ultralytics import YOLO
 from std_msgs.msg import Float32MultiArray
+from scipy.spatial.transform import Rotation as R
 
 def main():
     rospy.init_node('zed_yolo_node')
     
     # ROS publisher - only need coordinates now
-    coords_pub = rospy.Publisher('/zed/yolo/detections', Float32MultiArray, queue_size=1)
+    coords_pub = rospy.Publisher('/zed/detections', Float32MultiArray, queue_size=1)
+    gyro_pub = rospy.Publisher('/zed/gyro', Float32MultiArray, queue_size=1)
+    displacement_pub = rospy.Publisher('/zed/displacement', Float32MultiArray, queue_size=1)
     
     # Load your YOLO model weights
     try:
@@ -31,7 +34,13 @@ def main():
     runtime_params = sl.RuntimeParameters()
     image_zed = sl.Mat()
     depth_zed = sl.Mat()
-    
+    tracking_params = sl.PositionalTrackingParameters()
+    if zed.enable_positional_tracking(tracking_params) != sl.ERROR_CODE.SUCCESS:
+        rospy.logerr("Failed to enable positional tracking")
+        zed.close()
+        return
+    pose_zed = sl.Pose()
+
     rate = rospy.Rate(30)  # 30 Hz
     
     while not rospy.is_shutdown():
@@ -39,6 +48,7 @@ def main():
             # Retrieve image and depth data
             zed.retrieve_image(image_zed, sl.VIEW.LEFT)
             zed.retrieve_measure(depth_zed, sl.MEASURE.DEPTH)
+            
             
             # Get image data
             frame = image_zed.get_data()
@@ -136,6 +146,21 @@ def main():
                 coords_pub.publish(detection_msg)
             except Exception as e:
                 rospy.logwarn(f"Failed to publish detections: {e}")
+
+            if zed.get_position(pose_zed, sl.REFERENCE_FRAME.WORLD) == sl.POSITIONAL_TRACKING_STATE.OK:
+                translation = pose_zed.get_translation().get()
+                orientation = pose_zed.get_orientation().get()
+                r = R.from_quat(orientation)
+                euler_angles = r.as_euler('xyz', degrees=True)
+                try:
+                    gyro_msg = Float32MultiArray()
+                    displacement_msg = Float32MultiArray()
+                    gyro_msg.data = euler_angles
+                    displacement_msg.data = translation
+                    gyro_pub.publish(gyro_msg)
+                    displacement_pub.publish(displacement_msg)
+                except Exception as e:
+                    rospy.logwarn(f"Failed to publish IMU data: {e}")
         
         rate.sleep()
     
