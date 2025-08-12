@@ -3,7 +3,7 @@ import cv2
 from ultralytics import YOLO
 
 # Load YOLO model
-model = YOLO('2025comp/best.pt')  # path to your weights
+model = YOLO('best.pt')  # path to your weights
 
 
 # Initialize ZED camera
