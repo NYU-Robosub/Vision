@@ -56,7 +56,7 @@ def main():
             height, width = frame.shape[:2]
             
             # Run YOLO detection (frame is now RGB format)
-            results = model(frame, conf=0.5)
+            results = model(frame, conf=0.8)
             detections = []  # Store [x1, x2, y1, y2, depth, class_id, confidence] for each detection
 
             for result in results:
