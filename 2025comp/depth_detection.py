@@ -112,19 +112,19 @@ def main():
                     frame_for_drawing = np.ascontiguousarray(frame, dtype=np.uint8)
 
                     # Draw bounding box (convert to BGR for OpenCV drawing)
-                    frame_bgr = cv2.cvtColor(frame_for_drawing, cv2.COLOR_RGB2BGR)
-                    cv2.rectangle(frame_bgr, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                    # frame_bgr = cv2.cvtColor(frame_for_drawing, cv2.COLOR_RGB2BGR)
+                    cv2.rectangle(frame_for_drawing, (x1, y1), (x2, y2), (0, 255, 0), 2)
                     # Draw label with background for better visibility
                     label_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)[0]
-                    cv2.rectangle(frame, (x1, y1 - label_size[1] - 10),
+                    cv2.rectangle(frame_for_drawing, (x1, y1 - label_size[1] - 10),
                                 (x1 + label_size[0], y1), (0, 255, 0), -1)
-                    cv2.putText(frame, label, (x1, y1 - 5),
+                    cv2.putText(frame_for_drawing, label, (x1, y1 - 5),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2)
                     # Convert back to RGB for ROS publishing
-                    frame = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
+                    frame = frame_for_drawing
             # Convert to ROS Image message and publish
             try:
-                ros_image = bridge.cv2_to_imgmsg(frame_rgb, encoding="rgb8")
+                ros_image = bridge.cv2_to_imgmsg(frame, encoding="rgb8") 
                 image_pub.publish(ros_image)
             except Exception as e:
                 rospy.logwarn(f"Failed to publish image: {e}")
