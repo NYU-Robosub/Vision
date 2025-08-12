@@ -84,31 +84,41 @@ def main():
                     try:
                         depth_result = depth_zed.get_value(cx, cy)
                         
-                        # Check if depth_result is an error code
-                        if hasattr(depth_result, 'name') or str(depth_result).startswith('ERROR_CODE'):
-                            rospy.logwarn(f"Depth measurement failed at ({cx}, {cy}): {depth_result}")
-                            depth_val = -1.0
-                        else:
-                            # ZED get_value typically returns a single float value for depth
-                            if isinstance(depth_result, (tuple, list)):
-                                # If it's a tuple/list, take the first element (depth)
-                                depth_val = float(depth_result[0])
+                        # Handle different return formats and check for error codes
+                        depth_val = -1.0  # Default to invalid
+                        
+                        if isinstance(depth_result, (tuple, list)):
+                            # It's a tuple/list, check the first element
+                            first_element = depth_result[0]
+                            if hasattr(first_element, 'name') or str(first_element).startswith('ERROR_CODE'):
+                                rospy.logwarn(f"Depth measurement failed at ({cx}, {cy}): {first_element}")
                             else:
-                                # If it's a single value, use it directly
-                                depth_val = float(depth_result)
-                            
+                                try:
+                                    depth_val = float(first_element)
+                                except (ValueError, TypeError):
+                                    rospy.logwarn(f"Could not convert depth value to float at ({cx}, {cy}): {first_element}")
+                        else:
+                            # Single value, check if it's an error code
+                            if hasattr(depth_result, 'name') or str(depth_result).startswith('ERROR_CODE'):
+                                rospy.logwarn(f"Depth measurement failed at ({cx}, {cy}): {depth_result}")
+                            else:
+                                try:
+                                    depth_val = float(depth_result)
+                                except (ValueError, TypeError):
+                                    rospy.logwarn(f"Could not convert depth value to float at ({cx}, {cy}): {depth_result}")
+                        
+                        # Log successful depth readings
+                        if depth_val > 0 and not np.isnan(depth_val) and not np.isinf(depth_val):
                             rospy.loginfo(f"Detection: {model.names[cls]} at ({cx}, {cy}) depth: {depth_val:.2f}m")
                         
                     except Exception as e:
                         import traceback
                         error_type = type(e).__name__
                         error_msg = str(e)
-                        error_traceback = traceback.format_exc()
                         
-                        rospy.logwarn(f"Error getting depth value at ({cx}, {cy}):")
+                        rospy.logwarn(f"Unexpected error getting depth value at ({cx}, {cy}):")
                         rospy.logwarn(f"  Error Type: {error_type}")
                         rospy.logwarn(f"  Error Message: {error_msg}")
-                        rospy.logwarn(f"  Full Traceback: {error_traceback}")
                         depth_val = -1.0
                     
                     # Validate depth value
