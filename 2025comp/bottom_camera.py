@@ -81,8 +81,7 @@ def main():
                 # Publish ground depth data [avg_depth, min_depth, max_depth, num_valid_pixels]
                 try:
                     ground_msg = Float32MultiArray()
-                    ground_msg.data = [float(avg_ground_depth), float(min_ground_depth), 
-                                     float(max_ground_depth), float(len(depth_values))]
+                    ground_msg.data = float(avg_ground_depth)
                     ground_depth_pub.publish(ground_msg)
                 except Exception as e:
                     rospy.logwarn(f"Failed to publish ground depth: {e}")
