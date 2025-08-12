@@ -13,7 +13,7 @@ def main():
     
     # Load your YOLO model weights
     try:
-        model = YOLO("best.pt")
+        model = YOLO("best2.pt")
     except Exception as e:
         rospy.logerr(f"Failed to load YOLO model: {e}")
         return
