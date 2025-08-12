@@ -8,9 +8,8 @@ from std_msgs.msg import Float32MultiArray
 def main():
     rospy.init_node('zed_yolo_node')
     
-    # ROS publishers
-    depth_pub = rospy.Publisher('/zed/yolo/detected_depths', Float32MultiArray, queue_size=1)
-    coords_pub = rospy.Publisher('/zed/yolo/coordinates', Float32MultiArray, queue_size=1)
+    # ROS publisher - only need coordinates now
+    coords_pub = rospy.Publisher('/zed/yolo/detections', Float32MultiArray, queue_size=1)
     
     # Load your YOLO model weights
     try:
@@ -48,7 +47,7 @@ def main():
             if len(frame.shape) == 3:
                 if frame.shape[2] == 4:
                     # Convert RGBA to RGB
-                    frame = frame[:, :, :3]  # Drop alpha channel
+                    frame = frame[:, :, :3]  # Simply drop alpha channel
                 elif frame.shape[2] == 3:
                     # Already 3 channels, assume it's BGR and convert to RGB
                     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -59,7 +58,6 @@ def main():
             # Run YOLO detection (frame is now RGB format)
             results = model(frame, conf=0.5)
             detections = []  # Store [x1, y1, x2, y2, cx, cy, depth, class_id, confidence] for each detection
-            coordinates = []
 
             for result in results:
                 for box in result.boxes:
@@ -84,18 +82,18 @@ def main():
                         depth_val = -1.0  # Default to invalid
                         
                         if isinstance(depth_result, (tuple, list)):
-                            # It's a tuple/list, check the first element
-                            first_element = depth_result[0]
-                            if hasattr(first_element, 'name') or str(first_element).startswith('ERROR_CODE'):
-                                rospy.logwarn(f"Depth measurement failed at ({cx}, {cy}): {first_element}")
+                            # It's a tuple/list - ZED returns (error_code, depth_value)
+                            error_code, depth_value = depth_result
+                            if str(error_code) != 'SUCCESS':
+                                rospy.logwarn(f"Depth measurement failed at ({cx}, {cy}): {error_code}")
                             else:
                                 try:
-                                    depth_val = float(first_element)
+                                    depth_val = float(depth_value)
                                 except (ValueError, TypeError):
-                                    rospy.logwarn(f"Could not convert depth value to float at ({cx}, {cy}): {first_element}")
+                                    rospy.logwarn(f"Could not convert depth value to float at ({cx}, {cy}): {depth_value}")
                         else:
                             # Single value, check if it's an error code
-                            if hasattr(depth_result, 'name') or str(depth_result).startswith('ERROR_CODE'):
+                            if hasattr(depth_result, 'name') and 'ERROR' in str(depth_result):
                                 rospy.logwarn(f"Depth measurement failed at ({cx}, {cy}): {depth_result}")
                             else:
                                 try:
@@ -118,34 +116,24 @@ def main():
                         depth_val = -1.0
                     
                     # Validate depth value
-                    if depth_val > 0 and not np.isnan(depth_val) and not np.isinf(depth_val):
-                        detections.append(float(depth_val))
-                    else:
-                        detections.append(-1.0)  # Invalid depth marker
+                    if depth_val <= 0 or np.isnan(depth_val) or np.isinf(depth_val):
+                        depth_val = -1.0  # Invalid depth marker
                     
-                    # Store coordinates and detection info
-                    # Format: [x1, y1, x2, y2, cx, cy, class_id, confidence]
-                    coordinates.extend([float(x1), float(y1), float(x2), float(y2), 
-                                      float(cx), float(cy), float(cls), float(conf)])
+                    # Store detection info: [x1, y1, x2, y2, cx, cy, depth, class_id, confidence]
+                    detections.extend([float(x1), float(y1), float(x2), float(y2), 
+                                     float(cx), float(cy), float(depth_val), float(cls), float(conf)])
 
-            # Publish depths
+            # Publish detections as Float32MultiArray
             try:
-                depth_msg = Float32MultiArray()
-                depth_msg.data = detections
-                depth_pub.publish(depth_msg)
+                detection_msg = Float32MultiArray()
+                detection_msg.data = detections
+                coords_pub.publish(detection_msg)
             except Exception as e:
-                rospy.logwarn(f"Failed to publish depths: {e}")
-            
-            # Publish coordinates
-            try:
-                coords_msg = Float32MultiArray()
-                coords_msg.data = coordinates
-                coords_pub.publish(coords_msg)
-            except Exception as e:
-                rospy.logwarn(f"Failed to publish coordinates: {e}")
+                rospy.logwarn(f"Failed to publish detections: {e}")
         
         rate.sleep()
     
+    # Clean up
     zed.close()
 
 if __name__ == "__main__":
