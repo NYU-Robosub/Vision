@@ -35,11 +35,15 @@ def main():
     image_zed = sl.Mat()
     depth_zed = sl.Mat()
     tracking_params = sl.PositionalTrackingParameters()
+    tracking_params.set_as_static = False
     if zed.enable_positional_tracking(tracking_params) != sl.ERROR_CODE.SUCCESS:
         rospy.logerr("Failed to enable positional tracking")
         zed.close()
         return
     pose_zed = sl.Pose()
+    pose_zed.set_translation(sl.Translation(0,0,0))
+    pose_zed.set_orientation(sl.Orientation(0,0,0,1))
+    zed.set_camera_pose(pose_zed)
 
     rate = rospy.Rate(30)  # 30 Hz
     
@@ -165,6 +169,7 @@ def main():
         rate.sleep()
     
     # Clean up
+    zed.disable_positional_tracking()
     zed.close()
 
 if __name__ == "__main__":
